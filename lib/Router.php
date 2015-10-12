@@ -3,7 +3,7 @@
 namespace Socrate;
 
 use Pimple\Container;
-use Exception;
+use InvalidArgumentException;
 
 class Router
 {
@@ -18,7 +18,7 @@ class Router
 		$this->container = $container;
 	}
 
-	function getPath($name, $args) 
+	function getPath($name, $args = null) 
 	{
 		$meta = $this->getMeta($name);
 
@@ -68,7 +68,7 @@ class Router
 			return $this->metas[$name];
 		}
 
-		throw new Exception($name . ' is not a valid URL identifier');
+		throw new InvalidArgumentException($name . ' is not a valid URL identifier');
 
 	}
 
@@ -88,12 +88,11 @@ class Router
 			if (preg_match($rule[0], $request, $match)) 
 			{
 
-				$_GET += $match;
+				$_GET = array_merge($_GET, $match);
 
 				if (is_callable($rule[1])) 
 				{
 					return $rule[1]($container);
-
 				}
 
 				elseif (class_exists($rule[1]))
@@ -103,7 +102,6 @@ class Router
 
 				elseif (strpos($rule[1], '@'))
 				{
-
 					$subRule = explode('@', $rule[1]);
 					
 					$controller = new $subRule[0]($container);
@@ -112,7 +110,7 @@ class Router
 
 				else 
 				{
-					require $rule[1];
+					return require $rule[1];
 				}
 
 			}
