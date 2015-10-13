@@ -60,7 +60,7 @@ class Router
 
 		if (isset($this->urls[$name])) 
 		{
-			preg_match_all('#(?<regex>\(\?<(?<varName>[^>]+)>[^\)]+\))#', $this->urls[$name][0], $match);
+			preg_match_all('#(?<regex>(\([^\(]+)?\(\?<(?<varName>[^>]+)>[^\)]+\)([^\)]+\)\?)?)#', $this->urls[$name][0], $match);
 			$path = $this->urls[$name][0];
 			$path = explode($path[0], $path);
 			$this->metas[$name] = ['path' => $path[1], 'regex' => $match['regex'], 'varName' => $match['varName']];
