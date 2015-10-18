@@ -8,11 +8,14 @@ use InvalidArgumentException;
 class Router
 {
 
+	const NOT_FOUND = 'NOT_FOUND';
+	const NEXT = 'NEXT';
+
 	public $urls;
 	protected $metas;
 
 	protected $pregSpecialChars = ['\\', '+', '*', '?', '[', '^', ']' , '$', '(', ')', 
-										'{', '}', '=', '!', '<', '>', '|' , ':', '-'];
+										'{', '}', '=', '!', '<', '>', '|' , ':'];
 
 	function __construct(Container $container)
 	{
@@ -31,7 +34,7 @@ class Router
 			{
 
 				$_GET = array_merge($_GET, $match);
-
+				
 				if (is_callable($rule[1])) 
 				{
 					return $rule[1]($container);
@@ -59,7 +62,7 @@ class Router
 
 		}
 
-		throw new Http404;
+		return static::NOT_FOUND;
 
 	}
 
