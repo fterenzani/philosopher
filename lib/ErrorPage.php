@@ -37,6 +37,9 @@ class ErrorPage
 		if (stream_resolve_include_path($view)) {
 			die(require $view);
 
+		} elseif (stream_resolve_include_path('views/errors/generic_error.php')) {
+			die(require 'views/errors/generic_error.php');
+
 		} else {
 			// Rendere a default error view
 			die(require __DIR__.'/views/errors/generic_error.php');
