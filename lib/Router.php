@@ -33,16 +33,18 @@ class Router
 			if (preg_match($rule[0], $request, $match)) 
 			{
 
-				$_GET = array_merge($_GET, $match);
+				$defaults = isset($rule[2]) && is_array($rule[2])? $rule[2]: [];
+
+				$_GET = array_merge($_GET, $defaults, $match);
 				
 				if (is_callable($rule[1])) 
 				{
-					return $rule[1]($container);
+					$return = $rule[1]($container);
 				}
 
 				elseif (class_exists($rule[1]))
 				{
-					return new $rule[1]($container);
+					$return = new $rule[1]($container);
 				}
 
 				elseif (strpos($rule[1], '@'))
@@ -50,12 +52,16 @@ class Router
 					$subRule = explode('@', $rule[1]);
 					
 					$controller = new $subRule[0]($container);
-					return $controller->{$subRule[1]}();
+					$return = $controller->{$subRule[1]}();
 				}
 
 				else 
 				{
-					return require $rule[1];
+					$return = require $rule[1];
+				}
+
+				if ($return !== static::NEXT) {
+					return $return;
 				}
 
 			}
@@ -92,14 +98,12 @@ class Router
 				$replace = $args->{$method}(); 
 			}
 
-			if ($replace)
-			{
-				$replaces[] = $meta['prefix'][$i].$replace.$meta['suffix'][$i];
+			if ($replace) {
+				$replace = $meta['prefix'][$i].$replace.$meta['suffix'][$i];
 			}
-			else
-			{
-				$replaces[] = $replace;
-			}
+
+			$replaces[] = $replace;
+
 		}
 
 		$path = str_replace($meta['regex'], $replaces, $meta['path']);
@@ -124,16 +128,89 @@ class Router
 			$path = explode($path[0], $path);
 			$path = $path[1];
 
-			preg_match_all('#(?<regex>(?:\((?<prefix>[^\(]*))?\(\?<(?<varName>[^>]+)>[^\)]+\)(?:(?<suffix>[^)]*)\)\?)?)#', $path, $match);
+			// Split the regex into characters 
+			$chars = str_split($path);
+
+			$level = 0;
+			$subpattern = '';
+			$name = '';
+			$nameRecording = false;
+			$prefix = '';
+			$suffix = '';
+			$nameLevel = 0;
+			$subpatterns = [];
+			$names = [];
+			$prefixes = [];
+			$suffixes = [];
+
+			// Loop through the regex
+			for($i = 0, $j = count($chars); $i < $j; $i++) {
+
+				$prev = $i > 0? $chars[$i-1]: null;
+				$char = $chars[$i];
+
+				// Subpattern recording
+
+				// Sub pattern starts
+				if ($char === '(' && $prev !== '\\') {
+					$level++;
+
+				// Subpattern stops
+				} elseif ($char === ')' && $prev !== '\\') {
+					$level--;
+				}
+
+				// Record the subpattern at the first level
+				if ($level > 0) {
+					$subpattern .= $char;
+
+				// First level sub pattern ended: update the list of subpatterns
+				} elseif ($level === 0 && $subpattern) {
+					$subpattern .= $char;
+					if ($name) {
+						$names[] = $name;
+						$subpatterns[] = $subpattern;
+						$prefixes[] = $prefix;
+						$suffixes[] = $suffix;
+					}
+					$subpattern = '';
+					$name = '';
+					$prefix = '';
+					$suffix = '';
+					$level = 0;
+				}
+
+				// Subpattern name recording
+
+				// Name starts
+				if (!$name && $char === '<' && $prev !== '\\') {
+					$nameRecording = true;
+					$prefix = $subpattern;
+					$nameLevel = $level;
+
+				// Name stops
+				} elseif ($nameRecording && $char === '>' && $prev !== '\\') {
+					$nameRecording = false;
+
+				// Name recording
+				} elseif ($nameRecording) {
+					$name .= $char;
+				}
+
+				if (!$nameRecording && $prefix && $level < $nameLevel) {
+					$suffix .= $char;
+				}
+
+			}
 
 			$this->metas[$name] = [
 				'path' => $path, 
-				'regex' => $match['regex'], 
-				'varName' => $match['varName'], 
-				'prefix' => $match['prefix'], 
-				'suffix' => $match['suffix']
+				'regex' => $subpatterns,
+				'varName' => $names,
+				'prefix' => $prefixes,
+				'suffix' => $suffixes,
 				];
-
+				
 			return $this->metas[$name];
 		}
 
